@@ -1,3 +1,11 @@
+""" Loads configuration values from the environment
+
+Provides the following features:
+
+* Use an environment variable `VAR_NAME` to choose the current environment (dev, prod, test)
+* Load configuration values from `.env` files under `misc/env` and `misc/env.local`
+* Load some additional values from `misc/env.local` when running locally (not in Docker)
+"""
 from __future__ import annotations
 
 import os.path
@@ -9,19 +17,20 @@ from .defs import Env
 # Environment enum class
 ENV_ENUM = Env
 
-# Path to .env files for environments
+# Path to .env files for environments: dev.env, prod.env, test.env
 ENVS_PATH = 'misc/env/'
 
-# Path to .env files when running locally (as determined by the following function)
+# Path to .env files when running locally (not in Docker)
+# See `IS_RUNNING_LOCALLY`
 ENVS_LOCAL_PATH = 'misc/env.local/'
 
-# Is the application running locally? i.e. not in Docker.
-# If so, then `ENVS_LOCAL_PATH` will be loaded too
+# Is the application running locally (i.e. not in Docker)?
+# When running locally, will load configuration from `misc/env.local`
 IS_RUNNING_LOCALLY = int(os.getenv('ENV_RUNNING_LOCALLY', '0'))
 
 
 def set_default_environment(VAR_NAME: str, *, default_environment: str):
-    """ Set the default app environment if not set
+    """ Set the default app environment, if not set already.
 
     Example:
         set_default_environment('ENV', default_environment='dev')
@@ -33,12 +42,11 @@ def set_default_environment(VAR_NAME: str, *, default_environment: str):
 def load_environment_defaults_for(VAR_NAME: str):
     """ Load .env files for the environment if not already loaded.
 
-    The app reads its configuration from the environment.
-    But in some cases, like debugging with an IDE, this is inconvenient.
+    It will load values from `.env` files into the environment:
 
-    For this reason, we *also* load .env files with Python, but it never overrides the existing environment.
-
-    This is a back-up method, not the primary one.
+    * /misc/env/{name}.env
+    * /misc/env.local/{name}.env (only when running locally)
+    * /.{name}.env (only when running locally)
     """
     # Current environment
     env = get_environment(VAR_NAME)
@@ -58,12 +66,12 @@ def load_environment_from_file(name: str, *, override: bool):
         override: Override existing environment variables?
     """
     # Load from `misc/env`
-    dotenv.load_dotenv(dotenv.find_dotenv(os.path.join(ENVS_PATH, f'{name}.env')), override=override)
+    _load_dotenv_file(ENVS_PATH, f'{name}.env', override=override)
 
     # Load from `misc/env.local` (only if running locally)
     if IS_RUNNING_LOCALLY:
-        dotenv.load_dotenv(dotenv.find_dotenv(os.path.join(ENVS_LOCAL_PATH, f'{name}.env')), override=override)
-        dotenv.load_dotenv(dotenv.find_dotenv(f'.{name}.env'), override=override)
+        _load_dotenv_file(ENVS_LOCAL_PATH, f'{name}.env', override=override)
+        _load_dotenv_file('.', f'.{name}.env', override=override)
 
 
 def get_environment(VAR_NAME: str) -> Env:
@@ -77,3 +85,9 @@ def get_environment(VAR_NAME: str) -> Env:
     """
     env: str = os.environ[VAR_NAME]
     return ENV_ENUM(env)
+
+
+def _load_dotenv_file(path: str, filename: str, *, override: bool):
+    """ Load a .env file in path/filename, if it exists """
+    file_path = dotenv.find_dotenv(os.path.join(path, filename))
+    dotenv.load_dotenv(file_path, override=override)
