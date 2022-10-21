@@ -1,1 +1,5 @@
-__version__ = __import__('pkg_resources').get_distribution('apiens').version
+from importlib.metadata import version
+
+__version__ = version('apiens')
+
+del version
