@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-import requests  # type: ignore[import]
+import httpx  # type: ignore[import]
 import starlette.testclient
 from dataclasses import dataclass
 from collections import abc
@@ -46,14 +46,14 @@ class GraphQLClientMixin:
         res = self.graphql_sync_request(query, **variables)
 
         # It must be a 200 OK even in case of an error response
-        assert res.response.ok, f'Bad response code: {res.response.status_code}: {res.response.content}'
+        assert res.response.is_success, f'Bad response code: {res.response.status_code}: {res.response.content}'
 
         # Done
         return res
 
     def graphql_sync_request(self, query: str, /, **variables) -> GraphQLResponse:
         """ Make a GraphQL HTTP request and get a response """
-        res: requests.Response = self.post(  # type: ignore[attr-defined]
+        res: httpx.Response = self.post(  # type: ignore[attr-defined]
             url=self.GRAPHQL_ENDPOINT,
             json=dict(
                 query=query,
@@ -116,8 +116,8 @@ class GraphQLClientMixin:
 class GraphQLResponse(GraphQLResult):
     """ GraphQL result + response object """
     # The original HTTP request object
-    response: requests.Response
+    response: httpx.Response
 
-    def __init__(self, response: requests.Response):
+    def __init__(self, response: httpx.Response):
         self.response = response
         super().__init__(response.json())
